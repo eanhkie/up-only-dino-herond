@@ -49,7 +49,24 @@ File `vercel.json` đã được tạo với các cấu hình:
 
 ## Troubleshooting
 
-Nếu gặp lỗi build:
+### Lỗi: "The specified name is already used for a different Git repository"
+
+**Nguyên nhân**: Tên repository đã tồn tại trong GitHub account của bạn.
+
+**Giải pháp**:
+1. **Cách 1: Import repository đã tồn tại** (Khuyến nghị)
+   - Thay vì tạo repository mới, click **"Import"** trên repository "eanhkie/up-only-dino" đã có
+   - Vercel sẽ tự động detect và deploy repository đó
+
+2. **Cách 2: Đổi tên repository mới**
+   - Đổi tên "Private Repository Name" thành tên khác (ví dụ: "up-only-dino-game", "dino-jump-game")
+   - Hoặc bật toggle "Private Repository" để tạo private repo với tên khác
+
+3. **Cách 3: Xóa repository cũ** (nếu không cần)
+   - Vào GitHub, xóa repository "up-only-dino" cũ
+   - Sau đó tạo lại với tên đó
+
+### Lỗi build:
 1. Kiểm tra logs trong Vercel Dashboard
 2. Đảm bảo `package.json` có script `build`
 3. Kiểm tra Node.js version (Vercel mặc định dùng Node 18.x)

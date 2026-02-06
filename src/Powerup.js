@@ -87,20 +87,26 @@ export class Powerup extends Phaser.Physics.Arcade.Sprite {
 
   // Collected by player
   collect(player) {
-    if (this.isCollected) return
+    if (this.isCollected) return false
 
     this.isCollected = true
+    
+    // Stop existing floating animations
+    this.scene.tweens.killTweensOf(this)
     
     // Player collects power-up
     player.collectPowerup(this.powerupType)
 
-    // Play collection effect
+    // Enhanced collection effect with rotation and scale
     this.scene.tweens.add({
       targets: this,
-      scaleX: this.powerupScale * 1.5,
-      scaleY: this.powerupScale * 1.5,
+      scaleX: this.powerupScale * 2.5,
+      scaleY: this.powerupScale * 2.5,
+      rotation: this.rotation + Math.PI * 3,
       alpha: 0,
-      duration: 200,
+      y: this.y - 20,
+      duration: 400,
+      ease: 'Power2',
       onComplete: () => {
         this.destroy()
       }

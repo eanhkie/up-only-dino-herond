@@ -20,7 +20,8 @@ export default class GameScene extends Phaser.Scene {
     this.gameStarted = false
     this.gameOver = false
     this.score = 0
-    this.highestY = 0
+    this.highestY = 0 // Highest height ever reached
+    this.currentHeight = 0 // Current height (can decrease when falling)
     this.comboCount = 0
     this.lastEnemyKillTime = 0
     this.comboTimeout = 2000 // 2 seconds to maintain combo
@@ -36,14 +37,27 @@ export default class GameScene extends Phaser.Scene {
 
     // Create player
     this.player = new Player(this, screenSize.width.value / 2, screenSize.height.value - 100)
+    
+    // Store initial player Y position for height calculation
+    this.initialPlayerY = screenSize.height.value - 100
+    
+    // Store starting platform Y position (bậc ban đầu)
+    this.startingPlatformY = screenSize.height.value - 50
 
     // Create initial platforms
     this.createInitialPlatforms()
 
     // Setup camera follow with better smoothing
+    // Follow player both up and down, but with different deadzones
     this.cameras.main.startFollow(this.player, false, 0.1, 0.1)
     this.cameras.main.setLerp(0.15, 0.15)
-    this.cameras.main.setDeadzone(50, 100) // Deadzone để camera không di chuyển quá nhiều khi player di chuyển nhỏ
+    // Deadzone: follow immediately when falling, but allow some space when going up
+    this.cameras.main.setDeadzone(50, 50) // Smaller deadzone to follow better when falling
+    // Set follow offset to keep player in upper part of screen
+    this.cameras.main.setFollowOffset(0, -150) // Offset to keep player higher on screen
+    // Set camera bounds - allow camera to follow player when falling down
+    // No upper bound, but allow camera to scroll down when player falls
+    this.cameras.main.setBounds(0, -10000, screenSize.width.value, 20000)
 
     // Create input controls
     this.setupInputs()
@@ -147,7 +161,7 @@ export default class GameScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.powerups, (player, powerup) => {
       if (powerup.collect(player)) {
         this.updateScore(200) // Gain score for collecting power-up
-        this.createParticleEffect(powerup.x, powerup.y, 0x00ff00) // Green particles for power-up
+        this.createPowerupCollectionEffect(powerup.x, powerup.y, powerup.powerupType)
       }
     })
 
@@ -172,6 +186,21 @@ export default class GameScene extends Phaser.Scene {
 
   update() {
     if (!this.gameStarted || this.gameOver) return
+
+    // Update camera follow behavior - always follow player when falling
+    const cameraBottom = this.cameras.main.scrollY + this.cameras.main.height
+    if (this.player.body.velocity.y > 0 && this.player.y > this.cameras.main.scrollY + this.cameras.main.height * 0.6) {
+      // Player is falling and below 60% of screen - make camera follow immediately
+      this.cameras.main.setDeadzone(50, 0) // No deadzone when falling
+      // Force camera to follow player when falling - keep player in upper 40% of screen
+      const targetY = this.player.y - this.cameras.main.height * 0.4
+      if (this.cameras.main.scrollY < targetY) {
+        this.cameras.main.scrollY = Phaser.Math.Linear(this.cameras.main.scrollY, targetY, 0.4)
+      }
+    } else {
+      // Player is going up or in safe zone - allow some deadzone
+      this.cameras.main.setDeadzone(50, 50)
+    }
 
     // Update player
     this.player.update(this.cursors, this.spaceKey)
@@ -244,6 +273,148 @@ export default class GameScene extends Phaser.Scene {
     })
   }
 
+  // Enhanced power-up collection effect
+  createPowerupCollectionEffect(x, y, powerupType) {
+    // Get color and name based on power-up type
+    let color, name
+    switch(powerupType) {
+      case 'jetpack':
+        color = 0x00aaff // Blue
+        name = 'JETPACK!'
+        break
+      case 'spring_shoes':
+        color = 0xffaa00 // Orange
+        name = 'SPRING SHOES!'
+        break
+      case 'propeller_hat':
+        color = 0x00ffaa // Cyan
+        name = 'PROPELLER HAT!'
+        break
+      default:
+        color = 0x00ff00 // Green
+        name = 'POWER-UP!'
+    }
+
+    // Create enhanced particle effect with multiple layers
+    const mainParticles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
+      speed: { min: 100, max: 250 },
+      scale: { start: 0.15, end: 0 },
+      tint: color,
+      lifespan: 800,
+      quantity: 15,
+      angle: { min: 0, max: 360 }
+    })
+
+    // Create sparkle particles
+    const sparkleParticles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
+      speed: { min: 50, max: 100 },
+      scale: { start: 0.2, end: 0 },
+      tint: 0xffffff,
+      lifespan: 600,
+      quantity: 10,
+      angle: { min: 0, max: 360 }
+    })
+
+    // Create text popup
+    const popupText = this.add.text(x, y - 30, name, {
+      fontFamily: 'SupercellMagic',
+      fontSize: '24px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 6,
+      align: 'center'
+    }).setOrigin(0.5, 0.5).setDepth(200)
+
+    // Animate text popup
+    this.tweens.add({
+      targets: popupText,
+      y: y - 80,
+      alpha: 0,
+      scale: 1.5,
+      duration: 1000,
+      ease: 'Power2',
+      onComplete: () => {
+        popupText.destroy()
+      }
+    })
+
+    // Create glow effect around player
+    this.createPlayerGlowEffect(color)
+
+    // Screen flash effect
+    this.createScreenFlash(color, 0.3)
+
+    // Player bounce animation
+    this.tweens.add({
+      targets: this.player,
+      scaleX: this.player.scaleX * 1.2,
+      scaleY: this.player.scaleY * 1.2,
+      duration: 150,
+      yoyo: true,
+      ease: 'Power2'
+    })
+
+    // Clean up particles
+    this.time.delayedCall(800, () => {
+      mainParticles.destroy()
+      sparkleParticles.destroy()
+    })
+  }
+
+  // Create glow effect around player
+  createPlayerGlowEffect(color) {
+    // Create a glow sprite (circular) at player position
+    const playerX = this.player.x
+    const playerY = this.player.y
+    const glow = this.add.circle(playerX, playerY, 60, color, 0.4)
+    glow.setDepth(this.player.depth - 1)
+    glow.setBlendMode(Phaser.BlendModes.ADD)
+    glow.setScrollFactor(1, 1) // Follow camera
+
+    // Animate glow expanding and fading
+    this.tweens.add({
+      targets: glow,
+      scaleX: 2.0,
+      scaleY: 2.0,
+      alpha: 0,
+      duration: 600,
+      ease: 'Power2',
+      onUpdate: () => {
+        // Keep glow centered on player
+        glow.x = this.player.x
+        glow.y = this.player.y
+      },
+      onComplete: () => {
+        glow.destroy()
+      }
+    })
+  }
+
+  // Create screen flash effect
+  createScreenFlash(color, intensity = 0.2) {
+    const flash = this.add.rectangle(
+      this.cameras.main.centerX,
+      this.cameras.main.centerY,
+      this.cameras.main.width,
+      this.cameras.main.height,
+      color,
+      intensity
+    )
+    flash.setScrollFactor(0)
+    flash.setDepth(1000)
+    flash.setBlendMode(Phaser.BlendModes.ADD)
+
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 300,
+      ease: 'Power2',
+      onComplete: () => {
+        flash.destroy()
+      }
+    })
+  }
+
   // Screen shake effect
   screenShake(intensity = 100) {
     this.cameras.main.shake(200, intensity / 1000)
@@ -313,12 +484,26 @@ export default class GameScene extends Phaser.Scene {
 
   generateNewPlatforms() {
     const cameraTop = this.cameras.main.scrollY
+    const cameraBottom = this.cameras.main.scrollY + this.cameras.main.height
     const generateThreshold = cameraTop - 200
 
     // Dynamic difficulty scaling - increase enemy spawn chance and reduce platform spacing at higher heights
     const difficultyMultiplier = Math.min(1 + (this.highestY / 1000), 2) // Max 2x difficulty
     const adjustedEnemyChance = Math.min(enemyConfig.spawnChance.value * difficultyMultiplier, 20) // Cap at 20%
     const adjustedPlatformSpacing = Math.max(platformConfig.platformSpacing.value - (this.highestY / 50), 50) // Min 50 spacing
+
+    // Generate platforms below player if they're falling
+    if (this.player.body.velocity.y > 0 && this.player.y > cameraBottom - 100) {
+      // Player is falling and near bottom of screen - create platform below
+      const belowPlatformY = cameraBottom + 100
+      if (this.lastPlatformY < belowPlatformY - adjustedPlatformSpacing) {
+        const x = Phaser.Math.Between(80, screenSize.width.value - 80)
+        const type = Platform.getRandomPlatformType()
+        const platform = new Platform(this, x, belowPlatformY, type)
+        this.platforms.add(platform)
+        this.lastPlatformY = belowPlatformY
+      }
+    }
 
     // If highest platform is below generation threshold, generate new platform
     if (this.lastPlatformY > generateThreshold) {
@@ -373,9 +558,27 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updateHeight() {
-    const currentHeight = Math.max(0, Math.floor((screenSize.height.value - this.player.y) / 10))
-    if (currentHeight > this.highestY) {
-      this.highestY = currentHeight
+    // Calculate current height: positive when going up, 0 at start, can be negative when below start
+    const heightDifference = this.initialPlayerY - this.player.y
+    this.currentHeight = Math.floor(heightDifference / 10) // Allow negative values
+    
+    // Game over only when player falls BELOW the starting platform (bậc ban đầu)
+    // Player origin is at bottom (0.5, 1.0), so player.y is the bottom position
+    // Starting platform center is at startingPlatformY, need to check if player bottom is below platform center
+    // Add small buffer to account for platform visual height
+    const platformBuffer = 40 // Buffer to account for platform visual appearance
+    
+    if (this.player.y > this.startingPlatformY + platformBuffer && this.player.body.velocity.y > 0) {
+      // Player has fallen below the starting platform
+      // Only trigger if player is actually falling (not bouncing up)
+      this.gameOver = true
+      this.player.die()
+      return
+    }
+    
+    // Update highest height reached (only when going higher)
+    if (this.currentHeight > this.highestY) {
+      this.highestY = this.currentHeight
       this.updateScore(gameConfig.scoreMultiplier.value) // Gain score for reaching new height
     }
   }
@@ -427,7 +630,8 @@ export default class GameScene extends Phaser.Scene {
   updateUI() {
     // Send events to UIScene
     this.events.emit('updateScore', this.score)
-    this.events.emit('updateHeight', this.highestY)
+    // Send current height (can decrease when falling), not highest
+    this.events.emit('updateHeight', Math.max(0, this.currentHeight))
     this.events.emit('updateCombo', this.comboCount, this.getComboMultiplier())
 
     // Update power-ups status display

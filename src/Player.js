@@ -82,6 +82,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Initialize sound effect loop state
     this.jetpackSoundPlaying = false
     this.propellerSoundPlaying = false
+
+    // Jetpack thrust effect
+    this.jetpackThrustEmitter = null
+    this.jetpackThrustActive = false
   }
 
   createAnimations() {
@@ -150,6 +154,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Update animation
     this.updateAnimations()
 
+    // Update jetpack thrust effect position
+    this.updateJetpackThrust()
+
     // Check if fell out of screen
     this.checkFallOffScreen()
   }
@@ -174,6 +181,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       if (currentTime - this.jetpackStartTime > this.jetpackDuration) {
         this.hasJetpack = false
         this.stopJetpackSound()
+        this.destroyJetpackThrust()
       } else {
         newPowerupState = "jetpack"
       }
@@ -230,6 +238,68 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.propellerSoundPlaying) {
       this.propellerSoundPlaying = false
       this.propellerSpinningSound.stop()
+    }
+  }
+
+  // Create jetpack thrust effect
+  createJetpackThrust() {
+    if (this.jetpackThrustEmitter && this.jetpackThrustActive) {
+      return // Already active
+    }
+
+    // Position behind player (at the back, slightly below center)
+    const thrustX = this.x
+    const thrustY = this.y + (this.height * this.scaleY * 0.3) // Behind player's back
+
+    // Create particle emitter for jetpack thrust
+    this.jetpackThrustEmitter = this.scene.add.particles(thrustX, thrustY, 'ultra_tiny_bullet_dot', {
+      speed: { min: 200, max: 350 },
+      scale: { start: 0.15, end: 0.05 },
+      tint: [0xff6600, 0xffaa00, 0xffff00], // Orange to yellow gradient
+      lifespan: 300,
+      frequency: 30, // Emit every 30ms for continuous effect
+      angle: 90, // Downward direction (opposite of player movement)
+      gravityY: -100, // Slight upward pull
+      blendMode: 'ADD',
+      emitting: true
+    })
+
+    this.jetpackThrustEmitter.setDepth(this.depth - 1) // Behind player
+    this.jetpackThrustActive = true
+  }
+
+  // Update jetpack thrust position
+  updateJetpackThrust() {
+    if (this.jetpackThrustEmitter && this.jetpackThrustActive) {
+      // Update position to follow player (behind back)
+      const thrustX = this.x
+      const thrustY = this.y + (this.height * this.scaleY * 0.3)
+      
+      // Update emitter position
+      this.jetpackThrustEmitter.setPosition(thrustX, thrustY)
+      
+      // Adjust angle based on player facing direction
+      if (this.facingDirection === "left") {
+        this.jetpackThrustEmitter.setAngle(90) // Downward
+      } else {
+        this.jetpackThrustEmitter.setAngle(90) // Downward
+      }
+    }
+  }
+
+  // Destroy jetpack thrust effect
+  destroyJetpackThrust() {
+    if (this.jetpackThrustEmitter) {
+      this.jetpackThrustEmitter.stop()
+      // Destroy immediately if player is dead, otherwise fade out
+      const delay = this.isDead ? 0 : 500
+      this.scene.time.delayedCall(delay, () => {
+        if (this.jetpackThrustEmitter) {
+          this.jetpackThrustEmitter.destroy()
+          this.jetpackThrustEmitter = null
+        }
+      })
+      this.jetpackThrustActive = false
     }
   }
 
@@ -336,6 +406,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     else if (this.hasJetpack && (cursors.up.isDown || cursors.space?.isDown)) {
       this.body.setVelocityY(-this.jetpackPower)
       this.playJetpackSound()
+      this.createJetpackThrust()
+    } else if (this.hasJetpack && this.jetpackThrustActive) {
+      // Jetpack is active but not being used - stop thrust and sound
+      this.destroyJetpackThrust()
+      this.stopJetpackSound()
+    } else if (!this.hasJetpack && this.jetpackThrustActive) {
+      // Jetpack expired - clean up
+      this.destroyJetpackThrust()
     }
 
     // Screen boundary limit - cannot go beyond screen boundaries
@@ -474,6 +552,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (!this.hasPropellerHat) {
           this.currentPowerupState = "jetpack"
         }
+        // Note: Jetpack thrust will be created when player presses up/space
         break
       case 'spring_shoes':
         this.hasSpringShoes = true
@@ -490,10 +569,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   checkFallOffScreen() {
-    // If fall too far below screen, game over
-    if (this.y > this.scene.cameras.main.scrollY + this.scene.cameras.main.height + 200) {
-      this.die()
-    }
+    // Check is now handled in GameScene.updateHeight() - when height reaches 0
+    // This method kept for compatibility but logic moved to scene
   }
 
   die() {
@@ -501,6 +578,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     
     this.isDead = true
     this.body.setVelocity(0, 0)
+    
+    // Clean up jetpack thrust effect
+    this.destroyJetpackThrust()
     
     // Save high score before game over
     if (this.scene.saveHighScore) {

@@ -38,53 +38,109 @@ export class TitleScene extends Phaser.Scene {
     const screenWidth = screenSize.width.value
     const screenHeight = screenSize.height.value
     
-    // Create game title
-    this.gameTitle = this.add.image(screenWidth / 2, screenHeight * 0.3, "game_title")
+    // Add dinosaur image to title screen with floating animation
+    const dinoImage = this.add.image(screenWidth / 2, screenHeight * 0.2, 'trex_idle')
+    dinoImage.setScale(0.15) // Scale to fit nicely
+    dinoImage.setOrigin(0.5, 0.5)
     
-    const maxTitleWidth = screenWidth * 0.8
-    const maxTitleHeight = screenHeight * 0.4
-
-    if (this.gameTitle.width / this.gameTitle.height > maxTitleWidth / maxTitleHeight) {
-        this.gameTitle.setScale(maxTitleWidth / this.gameTitle.width)
-    } else {
-        this.gameTitle.setScale(maxTitleHeight / this.gameTitle.height)
-    }
-
-    // Create instruction text
-    this.createInstructionText()
-    this.createControlsText()
-  }
-
-  createInstructionText() {
-    const screenWidth = screenSize.width.value
-    const screenHeight = screenSize.height.value
-    
-    // Create "TAP TO START" text (centered)
-    this.startText = this.add.text(screenWidth / 2, screenHeight * 0.65, 'TAP TO START', {
-      fontFamily: 'SupercellMagic',
-      fontSize: Math.min(screenWidth / 10, 32) + 'px',
-      fill: '#333333',
-      stroke: '#ffffff',
-      strokeThickness: 6,
-      align: 'center'
-    }).setOrigin(0.5, 0.5)
-
-    // Add blinking animation
+    // Add floating animation to dinosaur
     this.tweens.add({
-      targets: this.startText,
-      alpha: 0.3,
-      duration: 1000,
+      targets: dinoImage,
+      y: screenHeight * 0.2 - 10,
+      duration: 1500,
       ease: 'Sine.easeInOut',
       yoyo: true,
       repeat: -1
     })
+    
+    // Create colorful title "UP ONLY DINO" with different colors for each letter
+    this.createColorfulTitle(screenWidth, screenHeight)
+
+    // Create instruction text (without TAP TO START)
+    // this.createInstructionText() // Removed TAP TO START
+    this.createControlsText()
   }
+
+  createColorfulTitle(screenWidth, screenHeight) {
+    const titleText = 'UP ONLY DINO'
+    const fontSize = Math.min(screenWidth / 6, 48)
+    const baseX = screenWidth / 2
+    const baseY = screenHeight * 0.35
+    
+    // Color scheme matching the original colorful style
+    // U-P-_-O-N-L-Y-_-D-I-N-O
+    const colorMap = {
+      'U': '#ff0000', // Red
+      'P': '#ffaa00', // Orange/Yellow
+      ' ': null,      // Space
+      'O': '#00ff00', // Green
+      'N': '#00aaff', // Blue
+      'L': '#ff00ff', // Magenta/Pink
+      'Y': '#ff0000', // Red
+      'D': '#ffaa00', // Orange/Yellow
+      'I': '#00aaff'  // Blue
+    }
+    
+    // Calculate total width and spacing
+    const letterSpacing = fontSize * 0.5 // Increased spacing between letters
+    const spaceSpacing = fontSize * 0.8 // More spacing for spaces between words
+    
+    // Calculate total width to center properly
+    let totalWidth = 0
+    for (let i = 0; i < titleText.length; i++) {
+      if (titleText[i] === ' ') {
+        totalWidth += spaceSpacing
+      } else {
+        totalWidth += letterSpacing
+      }
+    }
+    
+    // Create each letter with different color
+    let xOffset = -totalWidth / 2 // Start from left, centered
+    const letters = []
+    
+    for (let i = 0; i < titleText.length; i++) {
+      const char = titleText[i]
+      if (char === ' ') {
+        xOffset += spaceSpacing
+        continue
+      }
+      
+      const color = colorMap[char] || '#333333'
+      const letter = this.add.text(baseX + xOffset, baseY, char, {
+        fontFamily: 'SupercellMagic',
+        fontSize: fontSize + 'px',
+        fill: color,
+        stroke: '#000000',
+        strokeThickness: 6,
+        fontWeight: 'bold'
+      }).setOrigin(0.5, 0.5)
+      
+      letters.push(letter)
+      xOffset += letterSpacing
+    }
+    
+    // Add subtle bounce animation to letters
+    letters.forEach((letter, index) => {
+      this.tweens.add({
+        targets: letter,
+        y: baseY - 5,
+        duration: 1000 + (index * 100),
+        ease: 'Sine.easeInOut',
+        yoyo: true,
+        repeat: -1,
+        delay: index * 50
+      })
+    })
+  }
+
+  // Removed createInstructionText() - no longer showing "TAP TO START"
 
   createControlsText() {
     const screenWidth = screenSize.width.value
     const screenHeight = screenSize.height.value
     
-    // Create control instruction text
+    // Create control instruction text (moved up since TAP TO START is removed)
     const controlsText = `
 ← → : Move left/right
 SPACE : Shoot
@@ -96,7 +152,7 @@ Avoid enemies or shoot them!
 Collect power-ups for special abilities!
     `.trim()
 
-    this.controlsDisplay = this.add.text(screenWidth / 2, screenHeight * 0.85, controlsText, {
+    this.controlsDisplay = this.add.text(screenWidth / 2, screenHeight * 0.7, controlsText, {
       fontFamily: 'SupercellMagic',
       fontSize: Math.min(screenWidth / 25, 14) + 'px',
       fill: '#666666',

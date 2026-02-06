@@ -79,10 +79,8 @@ export class Powerup extends Phaser.Physics.Arcade.Sprite {
   update() {
     if (this.isCollected) return
 
-    // If power-up falls too far below screen, destroy it
-    if (this.y > this.scene.cameras.main.scrollY + this.scene.cameras.main.height + 300) {
-      this.destroy()
-    }
+    // Cache persists until game over or restart
+    // Do not destroy power-ups during gameplay - let GameScene handle cleanup
   }
 
   // Collected by player

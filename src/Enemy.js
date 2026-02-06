@@ -46,10 +46,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   update() {
     if (this.isDead || !this.active) return
 
-    // If enemy falls too far below screen, destroy it
-    if (this.y > this.scene.cameras.main.scrollY + this.scene.cameras.main.height + 200) {
-      this.destroy()
-    }
+    // Cache persists until game over or restart
+    // Do not destroy enemies during gameplay - let GameScene handle cleanup
   }
 
   // Stomped by player

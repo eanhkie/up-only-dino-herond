@@ -156,6 +156,8 @@ export default class GameScene extends Phaser.Scene {
         // Player hits enemy, game over
         this.gameOver = true
         player.die()
+        // Clear cache when game over
+        this.clearCache()
       }
     })
 
@@ -525,6 +527,7 @@ export default class GameScene extends Phaser.Scene {
 
   updateBackground() {
     const cameraTop = this.cameras.main.scrollY
+    const playerY = this.player.y
     const bgHeight = 1536
     const screenWidth = screenSize.width.value
     const bgWidth = 1024
@@ -544,9 +547,13 @@ export default class GameScene extends Phaser.Scene {
       this.lastBackgroundY -= bgHeight
     }
     
-    // Clean up backgrounds far from camera
+    // Cache all backgrounds above player - only remove if too far below player
+    // Keep all backgrounds that player has passed (above player)
+    const maxYBelow = playerY + 2000 // Only remove if more than 2000 pixels below player
     this.backgroundTiles = this.backgroundTiles.filter(bg => {
-      if (bg.y > cameraTop + screenSize.height.value + bgHeight) {
+      // Keep all backgrounds above player (bg.y < playerY means above)
+      // Only remove if too far below player
+      if (bg.y > maxYBelow) {
         bg.destroy()
         return false
       }
@@ -645,6 +652,8 @@ export default class GameScene extends Phaser.Scene {
       // Only trigger if player is actually falling (not bouncing up)
       this.gameOver = true
       this.player.die()
+      // Clear cache when game over
+      this.clearCache()
       return
     }
     
@@ -721,34 +730,44 @@ export default class GameScene extends Phaser.Scene {
   }
 
   cleanupOffScreenObjects() {
-    const cameraBottom = this.cameras.main.scrollY + this.cameras.main.height + 300
-
-    // Clean up platforms
-    this.platforms.children.entries.forEach(platform => {
-      if (platform.y > cameraBottom) {
-        platform.destroy()
-      }
-    })
-
-    // Clean up enemies
-    this.enemies.children.entries.forEach(enemy => {
-      if (enemy.y > cameraBottom) {
-        enemy.destroy()
-      }
-    })
-
-    // Clean up power-ups
-    this.powerups.children.entries.forEach(powerup => {
-      if (powerup.y > cameraBottom) {
-        powerup.destroy()
-      }
-    })
+    // DO NOT clean up platforms, enemies, or power-ups during gameplay
+    // Cache persists until game over or restart
+    // Only clean up temporary objects like bullets
 
     // Clean up bullets (return to pool instead of destroying)
+    // Bullets can be cleaned up more aggressively since they're temporary
+    const cameraBottom = this.cameras.main.scrollY + this.cameras.main.height + 300
     this.bullets.children.entries.forEach(bullet => {
       if (bullet.y < this.cameras.main.scrollY - 100 || bullet.y > cameraBottom) {
         this.returnBulletToPool(bullet)
       }
     })
+  }
+
+  // Clear all cache when game over or restart
+  clearCache() {
+    // Destroy all platforms
+    this.platforms.children.entries.forEach(platform => {
+      platform.destroy()
+    })
+
+    // Destroy all enemies
+    this.enemies.children.entries.forEach(enemy => {
+      enemy.destroy()
+    })
+
+    // Destroy all power-ups
+    this.powerups.children.entries.forEach(powerup => {
+      powerup.destroy()
+    })
+
+    // Destroy all bullets
+    this.bullets.children.entries.forEach(bullet => {
+      bullet.destroy()
+    })
+
+    // Clear bullet pool
+    this.bulletPool = []
+    this.activeBullets = 0
   }
 }

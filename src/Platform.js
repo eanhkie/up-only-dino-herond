@@ -106,10 +106,8 @@ export class Platform extends Phaser.Physics.Arcade.Sprite {
       }
     }
 
-    // If platform falls too far below screen, destroy it
-    if (this.y > this.scene.cameras.main.scrollY + this.scene.cameras.main.height + 300) {
-      this.destroy()
-    }
+    // Cache persists until game over or restart
+    // Do not destroy platforms during gameplay - let GameScene handle cleanup
   }
 
   // Player steps on platform

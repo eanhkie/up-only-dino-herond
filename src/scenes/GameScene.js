@@ -80,11 +80,34 @@ export default class GameScene extends Phaser.Scene {
     this.platformSpacing = platformConfig.platformSpacing.value
 
     // Play background music - Trăng Hoa Mây Mưa (Rap Việt)
-    this.backgroundMusic = this.sound.add("trang_hoa_may_mua", {
-      volume: 0.4, // Volume cho nhạc rap (có thể điều chỉnh 0.0 - 1.0)
-      loop: true
-    })
-    this.backgroundMusic.play()
+    // Thêm error handling để tránh game bị đứng nếu nhạc không load được
+    this.backgroundMusic = null
+    try {
+      // Kiểm tra xem audio có tồn tại trong cache không
+      if (this.cache.audio.exists("trang_hoa_may_mua")) {
+        this.backgroundMusic = this.sound.add("trang_hoa_may_mua", {
+          volume: 0.4, // Volume cho nhạc rap (có thể điều chỉnh 0.0 - 1.0)
+          loop: true
+        })
+        
+        // Không play ngay lập tức - chờ user interaction (browser autoplay policy)
+        // Nhạc sẽ được play trong setupInputs() khi user tương tác lần đầu
+      } else {
+        // Fallback nếu file nhạc không tồn tại
+        console.warn("Background music file not found, using fallback")
+        if (this.cache.audio.exists("gentle_background_ambient")) {
+          this.backgroundMusic = this.sound.add("gentle_background_ambient", {
+            volume: 0.15,
+            loop: true
+          })
+          // Cũng không play ngay, chờ user interaction
+        }
+      }
+    } catch (error) {
+      console.error("Error loading background music:", error)
+      // Game vẫn chạy bình thường dù không có nhạc
+      this.backgroundMusic = null
+    }
 
     // Start game
     this.startGame()
@@ -108,9 +131,22 @@ export default class GameScene extends Phaser.Scene {
   setupInputs() {
     this.cursors = this.input.keyboard.createCursorKeys()
     this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE)
+    
+    // Track if user has interacted (for audio autoplay policy)
+    this.userHasInteracted = false
 
     // Add touch controls
     this.input.on('pointerdown', (pointer) => {
+      // Start music on first user interaction (browser autoplay policy)
+      if (!this.userHasInteracted && this.backgroundMusic && !this.backgroundMusic.isPlaying) {
+        this.userHasInteracted = true
+        try {
+          this.backgroundMusic.play()
+        } catch (error) {
+          console.warn("Cannot play music on user interaction:", error)
+        }
+      }
+      
       if (!this.gameStarted || this.gameOver) return
 
       // Move player based on touch position
@@ -130,6 +166,18 @@ export default class GameScene extends Phaser.Scene {
       this.cursors.left.isDown = false
       this.cursors.right.isDown = false
       this.spaceKey.isDown = false
+    })
+    
+    // Also listen for keyboard input to start music
+    this.input.keyboard.on('keydown', () => {
+      if (!this.userHasInteracted && this.backgroundMusic && !this.backgroundMusic.isPlaying) {
+        this.userHasInteracted = true
+        try {
+          this.backgroundMusic.play()
+        } catch (error) {
+          console.warn("Cannot play music on keyboard input:", error)
+        }
+      }
     })
   }
 

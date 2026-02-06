@@ -58,6 +58,8 @@ export default class GameScene extends Phaser.Scene {
     // Set camera bounds - allow camera to follow player when falling down
     // No upper bound, but allow camera to scroll down when player falls
     this.cameras.main.setBounds(0, -10000, screenSize.width.value, 20000)
+    // Ensure camera always follows player (no bounds restriction on Y)
+    this.cameras.main.setScroll(0, 0)
 
     // Create input controls
     this.setupInputs()
@@ -295,43 +297,111 @@ export default class GameScene extends Phaser.Scene {
         name = 'POWER-UP!'
     }
 
-    // Create enhanced particle effect with multiple layers
+    // Create enhanced particle effect with multiple layers - more intense for better visibility
     const mainParticles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
-      speed: { min: 100, max: 250 },
-      scale: { start: 0.15, end: 0 },
+      speed: { min: 150, max: 300 },
+      scale: { start: 0.2, end: 0 },
       tint: color,
+      lifespan: 1000,
+      quantity: 30, // Increased quantity for better visibility
+      angle: { min: 0, max: 360 }
+    })
+
+    // Create sparkle particles - more visible
+    const sparkleParticles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
+      speed: { min: 80, max: 150 },
+      scale: { start: 0.25, end: 0 },
+      tint: 0xffffff,
       lifespan: 800,
+      quantity: 20, // Increased quantity
+      angle: { min: 0, max: 360 }
+    })
+    
+    // Add colored sparkle particles matching power-up color
+    const colorSparkles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
+      speed: { min: 100, max: 200 },
+      scale: { start: 0.18, end: 0 },
+      tint: color,
+      lifespan: 700,
       quantity: 15,
       angle: { min: 0, max: 360 }
     })
 
-    // Create sparkle particles
-    const sparkleParticles = this.add.particles(x, y, 'ultra_tiny_bullet_dot', {
-      speed: { min: 50, max: 100 },
-      scale: { start: 0.2, end: 0 },
-      tint: 0xffffff,
-      lifespan: 600,
-      quantity: 10,
-      angle: { min: 0, max: 360 }
+    // Create expanding ring effect - more visible
+    const ring = this.add.circle(x, y, 20, color, 0.8)
+    ring.setBlendMode(Phaser.BlendModes.ADD)
+    this.tweens.add({
+      targets: ring,
+      radius: 200,
+      alpha: 0,
+      duration: 800,
+      ease: 'Power2',
+      onComplete: () => {
+        ring.destroy()
+      }
+    })
+    
+    // Add second ring for extra effect
+    const ring2 = this.add.circle(x, y, 15, color, 0.6)
+    ring2.setBlendMode(Phaser.BlendModes.ADD)
+    this.tweens.add({
+      targets: ring2,
+      radius: 180,
+      alpha: 0,
+      duration: 700,
+      ease: 'Power2',
+      delay: 100,
+      onComplete: () => {
+        ring2.destroy()
+      }
     })
 
-    // Create text popup
+    // Create star burst effect - more stars for better visibility
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * 30) * Math.PI / 180
+      const star = this.add.circle(x, y, 10, color, 0.9)
+      star.setBlendMode(Phaser.BlendModes.ADD)
+      this.tweens.add({
+        targets: star,
+        x: x + Math.cos(angle) * 150,
+        y: y + Math.sin(angle) * 150,
+        alpha: 0,
+        scale: 0,
+        duration: 600,
+        ease: 'Power2',
+        delay: i * 25,
+        onComplete: () => {
+          star.destroy()
+        }
+      })
+    }
+
+    // Create text popup with enhanced effect - larger and more visible
     const popupText = this.add.text(x, y - 30, name, {
       fontFamily: 'SupercellMagic',
-      fontSize: '24px',
+      fontSize: '32px',
       color: '#ffffff',
       stroke: '#000000',
-      strokeThickness: 6,
-      align: 'center'
+      strokeThickness: 10,
+      align: 'center',
+      shadow: {
+        offsetX: 4,
+        offsetY: 4,
+        color: color,
+        blur: 15,
+        stroke: true,
+        fill: true
+      }
     }).setOrigin(0.5, 0.5).setDepth(200)
 
-    // Animate text popup
+    // Animate text popup with rotation
     this.tweens.add({
       targets: popupText,
-      y: y - 80,
+      y: y - 100,
       alpha: 0,
-      scale: 1.5,
-      duration: 1000,
+      scale: 1.8,
+      rotation: Math.PI * 0.2,
+      duration: 1200,
       ease: 'Power2',
       onComplete: () => {
         popupText.destroy()
@@ -342,22 +412,24 @@ export default class GameScene extends Phaser.Scene {
     this.createPlayerGlowEffect(color)
 
     // Screen flash effect
-    this.createScreenFlash(color, 0.3)
+    this.createScreenFlash(color, 0.4)
 
-    // Player bounce animation
+    // Player bounce animation with rotation
     this.tweens.add({
       targets: this.player,
-      scaleX: this.player.scaleX * 1.2,
-      scaleY: this.player.scaleY * 1.2,
-      duration: 150,
+      scaleX: this.player.scaleX * 1.3,
+      scaleY: this.player.scaleY * 1.3,
+      rotation: Math.PI * 0.1,
+      duration: 200,
       yoyo: true,
       ease: 'Power2'
     })
 
     // Clean up particles
-    this.time.delayedCall(800, () => {
+    this.time.delayedCall(1000, () => {
       mainParticles.destroy()
       sparkleParticles.destroy()
+      colorSparkles.destroy()
     })
   }
 

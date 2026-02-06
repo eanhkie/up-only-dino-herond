@@ -15,51 +15,51 @@ export default class UIScene extends Phaser.Scene {
     const highScore = this.getHighScore()
     const highHeight = this.getHighHeight()
 
-    // Create score display
+    // Create score display - ensure it's always visible (fixed to camera)
     this.scoreText = this.add.text(20, 20, 'Score: 0', {
       fontFamily: 'SupercellMagic',
       fontSize: '24px',
       color: '#000000',
       stroke: '#ffffff',
       strokeThickness: 4
-    }).setScrollFactor(0).setDepth(100)
+    }).setScrollFactor(0).setDepth(10000).setOrigin(0, 0)
 
-    // Create height display
+    // Create height display - ensure it's always visible (fixed to camera)
     this.heightText = this.add.text(20, 50, 'Height: 0m', {
       fontFamily: 'SupercellMagic',
       fontSize: '20px',
       color: '#000000',
       stroke: '#ffffff',
       strokeThickness: 4
-    }).setScrollFactor(0).setDepth(100)
+    }).setScrollFactor(0).setDepth(10000).setOrigin(0, 0)
 
-    // Create high score display
+    // Create high score display - ensure it's always visible (fixed to camera)
     this.highScoreText = this.add.text(20, 80, `Best: ${highScore}`, {
       fontFamily: 'SupercellMagic',
       fontSize: '18px',
       color: '#ffaa00',
       stroke: '#ffffff',
       strokeThickness: 3
-    }).setScrollFactor(0).setDepth(100)
+    }).setScrollFactor(0).setDepth(10000).setOrigin(0, 0)
 
-    // Create combo display
+    // Create combo display - ensure it's always visible (fixed to camera)
     this.comboText = this.add.text(screenSize.width.value / 2, 20, '', {
       fontFamily: 'SupercellMagic',
       fontSize: '28px',
       color: '#ff0000',
       stroke: '#ffffff',
       strokeThickness: 5
-    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100)
+    }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(10000)
     this.comboText.setVisible(false)
 
-    // Create power-up status display
+    // Create power-up status display - ensure it's always visible (fixed to camera)
     this.powerupText = this.add.text(screenSize.width.value - 20, 20, '', {
       fontFamily: 'SupercellMagic',
       fontSize: '16px',
       color: '#ff6600',
       stroke: '#ffffff',
       strokeThickness: 3
-    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100)
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(10000)
 
     // Listen for game events from the game scene
     this.gameScene = this.scene.get(this.gameSceneKey)

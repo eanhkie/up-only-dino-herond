@@ -63,7 +63,6 @@ export class TitleScene extends Phaser.Scene {
 
   createColorfulTitle(screenWidth, screenHeight) {
     const titleText = 'UP ONLY DINO'
-    const fontSize = Math.min(screenWidth / 6, 48)
     const baseX = screenWidth / 2
     const baseY = screenHeight * 0.35
     
@@ -81,11 +80,11 @@ export class TitleScene extends Phaser.Scene {
       'I': '#00aaff'  // Blue
     }
     
-    // Calculate total width and spacing
-    const letterSpacing = fontSize * 0.5 // Increased spacing between letters
-    const spaceSpacing = fontSize * 0.8 // More spacing for spaces between words
+    // Calculate spacing first
+    const letterSpacing = 35 // Fixed spacing between letters
+    const spaceSpacing = 50 // Fixed spacing for spaces between words
     
-    // Calculate total width to center properly
+    // Calculate total width to determine if we need to adjust font size
     let totalWidth = 0
     for (let i = 0; i < titleText.length; i++) {
       if (titleText[i] === ' ') {
@@ -95,14 +94,25 @@ export class TitleScene extends Phaser.Scene {
       }
     }
     
+    // Adjust font size to fit screen width (leave 10% margin on each side)
+    const maxWidth = screenWidth * 0.9
+    let fontSize = Math.min(screenWidth / 6, 48)
+    if (totalWidth > maxWidth) {
+      fontSize = (maxWidth / totalWidth) * fontSize
+    }
+    
+    // Recalculate spacing based on adjusted font size to maintain proportions
+    const adjustedLetterSpacing = (letterSpacing / 48) * fontSize
+    const adjustedSpaceSpacing = (spaceSpacing / 48) * fontSize
+    
     // Create each letter with different color
-    let xOffset = -totalWidth / 2 // Start from left, centered
+    let xOffset = 0 // Start from center, will adjust later
     const letters = []
     
     for (let i = 0; i < titleText.length; i++) {
       const char = titleText[i]
       if (char === ' ') {
-        xOffset += spaceSpacing
+        xOffset += adjustedSpaceSpacing
         continue
       }
       
@@ -117,7 +127,27 @@ export class TitleScene extends Phaser.Scene {
       }).setOrigin(0.5, 0.5)
       
       letters.push(letter)
-      xOffset += letterSpacing
+      xOffset += adjustedLetterSpacing
+    }
+    
+    // Calculate actual bounds of all letters to center properly
+    if (letters.length > 0) {
+      let minX = Infinity
+      let maxX = -Infinity
+      
+      letters.forEach(letter => {
+        const bounds = letter.getBounds()
+        minX = Math.min(minX, bounds.left)
+        maxX = Math.max(maxX, bounds.right)
+      })
+      
+      const actualWidth = maxX - minX
+      const centerOffset = (screenWidth / 2) - ((minX + maxX) / 2)
+      
+      // Reposition all letters to be perfectly centered
+      letters.forEach(letter => {
+        letter.x += centerOffset
+      })
     }
     
     // Add subtle bounce animation to letters
@@ -145,7 +175,6 @@ export class TitleScene extends Phaser.Scene {
 ← → : Move left/right
 SPACE : Shoot
 TAP LEFT/RIGHT : Move
-TAP : Shoot
 
 Jump on platforms to go higher!
 Avoid enemies or shoot them!

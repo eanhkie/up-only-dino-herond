@@ -86,6 +86,22 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Jetpack thrust effect
     this.jetpackThrustEmitter = null
     this.jetpackThrustActive = false
+    
+    // Jetpack visual sprite on player's back
+    this.jetpackSprite = null
+    
+    // Auto-fly when jetpack is collected
+    this.jetpackAutoFly = false
+    this.jetpackAutoFlyDuration = 500 // Auto fly for 500ms after collection
+    
+    // Spring shoes visual sprites on player's feet
+    this.springShoesSprites = []
+    
+    // Propeller hat visual sprite on player's head
+    this.propellerHatSprite = null
+    
+    // Power-up active effects
+    this.powerupGlowEffect = null
   }
 
   createAnimations() {
@@ -156,6 +172,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     // Update jetpack thrust effect position
     this.updateJetpackThrust()
+    
+    // Update jetpack visual position
+    this.updateJetpackVisual()
+    
+    // Update spring shoes visual position
+    this.updateSpringShoesVisual()
+    
+    // Update propeller hat visual position
+    this.updatePropellerHatVisual()
+    
+    // Update power-up glow effect
+    this.updatePowerupGlow()
 
     // Check if fell out of screen
     this.checkFallOffScreen()
@@ -164,36 +192,94 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   updatePowerupStates() {
     const currentTime = this.scene.time.now
     let newPowerupState = "normal"
+    
+    // Determine which power-up was collected most recently (priority: most recent wins)
+    let mostRecentPowerup = null
+    let mostRecentTime = 0
+    
+    if (this.hasPropellerHat && (currentTime - this.propellerHatStartTime <= this.propellerHatDuration)) {
+      if (this.propellerHatStartTime > mostRecentTime) {
+        mostRecentTime = this.propellerHatStartTime
+        mostRecentPowerup = "propellerhat"
+      }
+    }
+    
+    if (this.hasJetpack && (currentTime - this.jetpackStartTime <= this.jetpackDuration)) {
+      if (this.jetpackStartTime > mostRecentTime) {
+        mostRecentTime = this.jetpackStartTime
+        mostRecentPowerup = "jetpack"
+      }
+    }
+    
+    if (this.hasSpringShoes && (currentTime - this.springShoesStartTime <= this.springShoesDuration)) {
+      if (this.springShoesStartTime > mostRecentTime) {
+        mostRecentTime = this.springShoesStartTime
+        mostRecentPowerup = "springshoes"
+      }
+    }
 
-    // Check propeller hat status (highest priority)
+    // Check propeller hat status
     if (this.hasPropellerHat) {
       if (currentTime - this.propellerHatStartTime > this.propellerHatDuration) {
         this.hasPropellerHat = false
         this.stopPropellerSound()
+        this.removePropellerHatVisual()
       } else {
-        newPowerupState = "propellerhat"
-        this.playPropellerSound()
+        // Only show visual if it's the most recent power-up
+        if (mostRecentPowerup === "propellerhat") {
+          newPowerupState = "propellerhat"
+          this.playPropellerSound()
+          this.createPropellerHatVisual()
+          // Hide other power-up visuals
+          this.removeJetpackVisual()
+          this.removeSpringShoesVisual()
+        }
       }
+    } else if (!this.hasPropellerHat && this.propellerHatSprite) {
+      // Propeller hat expired but sprite still exists
+      this.removePropellerHatVisual()
     }
 
-    // Check jetpack status (second priority)
-    if (this.hasJetpack && newPowerupState === "normal") {
+    // Check jetpack status
+    if (this.hasJetpack) {
       if (currentTime - this.jetpackStartTime > this.jetpackDuration) {
         this.hasJetpack = false
+        this.jetpackAutoFly = false // Stop auto-fly
         this.stopJetpackSound()
         this.destroyJetpackThrust()
+        this.removeJetpackVisual()
       } else {
-        newPowerupState = "jetpack"
+        // Only show visual if it's the most recent power-up
+        if (mostRecentPowerup === "jetpack") {
+          newPowerupState = "jetpack"
+          this.createJetpackVisual()
+          // Hide other power-up visuals
+          this.removeSpringShoesVisual()
+        }
       }
+    } else if (!this.hasJetpack && this.jetpackSprite) {
+      // Jetpack expired but sprite still exists
+      this.jetpackAutoFly = false // Stop auto-fly
+      this.removeJetpackVisual()
     }
 
-    // Check spring shoes status (lowest priority)
-    if (this.hasSpringShoes && newPowerupState === "normal") {
+    // Check spring shoes status
+    if (this.hasSpringShoes) {
       if (currentTime - this.springShoesStartTime > this.springShoesDuration) {
         this.hasSpringShoes = false
+        this.removeSpringShoesVisual()
       } else {
-        newPowerupState = "springshoes"
+        // Only show visual if it's the most recent power-up
+        if (mostRecentPowerup === "springshoes") {
+          newPowerupState = "springshoes"
+          this.createSpringShoesVisual()
+          // Hide other power-up visuals
+          this.removeJetpackVisual()
+        }
       }
+    } else if (!this.hasSpringShoes && this.springShoesSprites.length > 0) {
+      // Spring shoes expired but sprites still exist
+      this.removeSpringShoesVisual()
     }
 
     // Stop unrelated sound effects
@@ -303,6 +389,239 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  // Create jetpack visual sprite on player's back
+  createJetpackVisual() {
+    if (this.jetpackSprite) return // Already exists
+    
+    // Calculate scale to match player size
+    // Player uses scale ~0.065, jetpack should be same size
+    // Need to calculate based on actual player scale
+    const playerCurrentScale = this.scaleY || 0.065
+    
+    // Create jetpack sprite on player's back - scale to match player size
+    this.jetpackSprite = this.scene.add.image(this.x, this.y, 'jetpack_powerup')
+    // Scale jetpack to match player's visual size
+    // Player scale is 0.065, so jetpack should use similar scale
+    this.jetpackSprite.setScale(playerCurrentScale) // Same scale as player
+    this.jetpackSprite.setOrigin(0.5, 0.5)
+    this.jetpackSprite.setDepth(this.depth - 1) // Behind player to avoid override
+    this.jetpackSprite.setFlipX(this.facingDirection === "left")
+    
+    // Add entrance animation
+    this.jetpackSprite.setScale(0)
+    this.scene.tweens.add({
+      targets: this.jetpackSprite,
+      scale: playerCurrentScale,
+      duration: 300,
+      ease: 'Back.easeOut'
+    })
+  }
+
+  // Update jetpack visual position
+  updateJetpackVisual() {
+    if (this.jetpackSprite && this.jetpackSprite.active) {
+      // Position on player's back (slightly above center)
+      this.jetpackSprite.x = this.x
+      this.jetpackSprite.y = this.y - (this.height * this.scaleY * 0.2)
+      this.jetpackSprite.setFlipX(this.facingDirection === "left")
+      
+      // Update scale to match player scale (same size as player)
+      const playerCurrentScale = this.scaleY || 0.065
+      this.jetpackSprite.setScale(playerCurrentScale)
+    }
+  }
+
+  // Remove jetpack visual
+  removeJetpackVisual() {
+    if (this.jetpackSprite) {
+      this.scene.tweens.add({
+        targets: this.jetpackSprite,
+        scale: 0,
+        alpha: 0,
+        duration: 200,
+        ease: 'Power2',
+        onComplete: () => {
+          if (this.jetpackSprite) {
+            this.jetpackSprite.destroy()
+            this.jetpackSprite = null
+          }
+        }
+      })
+    }
+  }
+
+  // Create spring shoes visual sprites on player's feet
+  createSpringShoesVisual() {
+    if (this.springShoesSprites.length > 0) return // Already exists
+    
+    // Create spring shoes sprites on player's feet - smaller scale, ngay chân
+    const leftShoe = this.scene.add.image(this.x - 8, this.y - 2, 'spring_shoes_powerup')
+    const rightShoe = this.scene.add.image(this.x + 8, this.y - 2, 'spring_shoes_powerup')
+    
+    leftShoe.setScale(0.04) // Much smaller scale to fit nicely
+    rightShoe.setScale(0.04)
+    leftShoe.setOrigin(0.5, 0.5)
+    rightShoe.setOrigin(0.5, 0.5)
+    leftShoe.setDepth(this.depth - 1) // Behind player to avoid override
+    rightShoe.setDepth(this.depth - 1)
+    leftShoe.setFlipX(this.facingDirection === "left")
+    rightShoe.setFlipX(this.facingDirection === "left")
+    
+    this.springShoesSprites = [leftShoe, rightShoe]
+    
+    // Add entrance animation
+    leftShoe.setScale(0)
+    rightShoe.setScale(0)
+    this.scene.tweens.add({
+      targets: [leftShoe, rightShoe],
+      scale: 0.04,
+      duration: 300,
+      ease: 'Back.easeOut'
+    })
+  }
+
+  // Update spring shoes visual position
+  updateSpringShoesVisual() {
+    if (this.springShoesSprites.length > 0) {
+      this.springShoesSprites.forEach((shoe, index) => {
+        if (shoe && shoe.active) {
+          // Position on player's feet (at bottom, ngay chân nhân vật)
+          // Player origin is at bottom (0.5, 1.0), so this.y is the bottom
+          shoe.x = this.x + (index === 0 ? -8 : 8)
+          shoe.y = this.y - 2 // Ngay chân nhân vật (slightly above bottom)
+          shoe.setFlipX(this.facingDirection === "left")
+        }
+      })
+    }
+  }
+
+  // Remove spring shoes visual
+  removeSpringShoesVisual() {
+    if (this.springShoesSprites.length > 0) {
+      this.springShoesSprites.forEach(shoe => {
+        if (shoe) {
+          this.scene.tweens.add({
+            targets: shoe,
+            scale: 0,
+            alpha: 0,
+            duration: 200,
+            ease: 'Power2',
+            onComplete: () => {
+              if (shoe) {
+                shoe.destroy()
+              }
+            }
+          })
+        }
+      })
+      this.springShoesSprites = []
+    }
+  }
+
+  // Create propeller hat visual sprite on player's head
+  createPropellerHatVisual() {
+    if (this.propellerHatSprite) return // Already exists
+    
+    // Calculate scale - smaller than player to look natural
+    const playerCurrentScale = this.scaleY || 0.065
+    const propellerScale = playerCurrentScale * 0.4 // Much smaller to look natural on head
+    
+    // Create propeller hat sprite on player's head - cố định, không xoay
+    this.propellerHatSprite = this.scene.add.image(this.x, this.y, 'propeller_hat_powerup')
+    this.propellerHatSprite.setScale(propellerScale) // Smaller scale to look natural
+    this.propellerHatSprite.setOrigin(0.5, 0.5)
+    this.propellerHatSprite.setDepth(this.depth - 1) // Behind player to avoid override
+    this.propellerHatSprite.setFlipX(this.facingDirection === "left")
+    
+    // Add entrance animation
+    this.propellerHatSprite.setScale(0)
+    this.scene.tweens.add({
+      targets: this.propellerHatSprite,
+      scale: propellerScale,
+      duration: 300,
+      ease: 'Back.easeOut'
+    })
+    
+    // No rotation animation - cố định trên đầu
+  }
+
+  // Update propeller hat visual position
+  updatePropellerHatVisual() {
+    if (this.propellerHatSprite && this.propellerHatSprite.active) {
+      // Position ngay trên đầu nhân vật (above head, not overlapping)
+      // Player origin is at bottom (0.5, 1.0), so head is above
+      this.propellerHatSprite.x = this.x
+      // Calculate head position and place chong chóng above it
+      const headY = this.y - (this.height * this.scaleY) // Top of head
+      const chongChongHeight = this.propellerHatSprite.height * this.propellerHatSprite.scaleY
+      this.propellerHatSprite.y = headY - (chongChongHeight * 0.3) // Ngay trên đầu, trông tự nhiên hơn
+      this.propellerHatSprite.setFlipX(this.facingDirection === "left")
+      
+      // Update scale - smaller than player to look natural
+      const playerCurrentScale = this.scaleY || 0.065
+      const propellerScale = playerCurrentScale * 0.4 // Much smaller to look natural
+      this.propellerHatSprite.setScale(propellerScale)
+      
+      // Keep rotation at 0 - không xoay
+      this.propellerHatSprite.setRotation(0)
+    }
+  }
+
+  // Remove propeller hat visual
+  removePropellerHatVisual() {
+    if (this.propellerHatSprite) {
+      this.scene.tweens.add({
+        targets: this.propellerHatSprite,
+        scale: 0,
+        alpha: 0,
+        duration: 200,
+        ease: 'Power2',
+        onComplete: () => {
+          if (this.propellerHatSprite) {
+            this.propellerHatSprite.destroy()
+            this.propellerHatSprite = null
+          }
+        }
+      })
+    }
+  }
+
+  // Create/update power-up glow effect
+  updatePowerupGlow() {
+    if (this.hasJetpack || this.hasSpringShoes || this.hasPropellerHat) {
+      if (!this.powerupGlowEffect) {
+        // Create glow effect
+        this.powerupGlowEffect = this.scene.add.circle(this.x, this.y, 40, 0xffff00, 0.2)
+        this.powerupGlowEffect.setBlendMode(Phaser.BlendModes.ADD)
+        this.powerupGlowEffect.setDepth(this.depth - 1)
+        
+        // Animate glow
+        this.scene.tweens.add({
+          targets: this.powerupGlowEffect,
+          scaleX: 1.3,
+          scaleY: 1.3,
+          alpha: 0.3,
+          duration: 1000,
+          ease: 'Sine.easeInOut',
+          yoyo: true,
+          repeat: -1
+        })
+      }
+      
+      // Update glow position
+      if (this.powerupGlowEffect) {
+        this.powerupGlowEffect.x = this.x
+        this.powerupGlowEffect.y = this.y
+      }
+    } else if (!this.hasJetpack && !this.hasSpringShoes && !this.hasPropellerHat) {
+      // Remove glow when no power-ups
+      if (this.powerupGlowEffect) {
+        this.powerupGlowEffect.destroy()
+        this.powerupGlowEffect = null
+      }
+    }
+  }
+
   // Method to force update animation
   forceUpdateAnimation() {
     // If currently shooting, do not force update other animations
@@ -402,15 +721,35 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.hasPropellerHat) {
       this.body.setVelocityY(-this.propellerHatPower)
     }
-    // Jetpack control (requires key press)
-    else if (this.hasJetpack && (cursors.up.isDown || cursors.space?.isDown)) {
-      this.body.setVelocityY(-this.jetpackPower)
-      this.playJetpackSound()
-      this.createJetpackThrust()
-    } else if (this.hasJetpack && this.jetpackThrustActive) {
-      // Jetpack is active but not being used - stop thrust and sound
-      this.destroyJetpackThrust()
-      this.stopJetpackSound()
+    // Jetpack control - auto-fly when collected, then manual control
+    else if (this.hasJetpack) {
+      const currentTime = this.scene.time.now
+      // Auto-fly for a short duration after collection
+      if (this.jetpackAutoFly && (currentTime - this.jetpackAutoFlyStartTime < this.jetpackAutoFlyDuration)) {
+        // Auto-fly: automatically go up with strong force (override gravity)
+        // Use stronger force to overcome gravity
+        this.body.setVelocityY(-this.jetpackPower * 1.5) // 1.5x stronger for auto-fly
+        this.playJetpackSound()
+        this.createJetpackThrust()
+      }
+      // Manual control (requires key press) after auto-fly
+      else {
+        // Auto-fly period ended, switch to manual control
+        if (this.jetpackAutoFly) {
+          this.jetpackAutoFly = false
+        }
+        
+        if (cursors.up.isDown || cursors.space?.isDown) {
+          // Strong upward force to overcome gravity
+          this.body.setVelocityY(-this.jetpackPower * 1.3) // 1.3x stronger for manual control
+          this.playJetpackSound()
+          this.createJetpackThrust()
+        } else if (this.jetpackThrustActive) {
+          // Jetpack is active but not being used - stop thrust and sound
+          this.destroyJetpackThrust()
+          this.stopJetpackSound()
+        }
+      }
     } else if (!this.hasJetpack && this.jetpackThrustActive) {
       // Jetpack expired - clean up
       this.destroyJetpackThrust()
@@ -544,6 +883,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.hasPropellerHat = true
         this.propellerHatStartTime = currentTime
         this.currentPowerupState = "propellerhat"
+        // Create propeller hat visual on player's head
+        this.createPropellerHatVisual()
         break
       case 'jetpack':
         this.hasJetpack = true
@@ -552,7 +893,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (!this.hasPropellerHat) {
           this.currentPowerupState = "jetpack"
         }
-        // Note: Jetpack thrust will be created when player presses up/space
+        // Create jetpack visual on player's back
+        this.createJetpackVisual()
+        // Auto-fly when collected - automatically fly up
+        this.jetpackAutoFly = true
+        this.jetpackAutoFlyStartTime = currentTime
+        // Immediately start flying up
+        this.body.setVelocityY(-this.jetpackPower)
+        this.playJetpackSound()
+        this.createJetpackThrust()
         break
       case 'spring_shoes':
         this.hasSpringShoes = true
@@ -561,6 +910,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         if (!this.hasPropellerHat && !this.hasJetpack) {
           this.currentPowerupState = "springshoes"
         }
+        // Create spring shoes visual on player's feet
+        this.createSpringShoesVisual()
         break
     }
 
@@ -581,6 +932,21 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     
     // Clean up jetpack thrust effect
     this.destroyJetpackThrust()
+    
+    // Remove jetpack visual
+    this.removeJetpackVisual()
+    
+    // Remove spring shoes visual
+    this.removeSpringShoesVisual()
+    
+    // Remove propeller hat visual
+    this.removePropellerHatVisual()
+    
+    // Remove power-up glow
+    if (this.powerupGlowEffect) {
+      this.powerupGlowEffect.destroy()
+      this.powerupGlowEffect = null
+    }
     
     // Save high score before game over
     if (this.scene.saveHighScore) {

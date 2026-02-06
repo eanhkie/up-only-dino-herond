@@ -217,6 +217,16 @@
         "type": "audio",
         "key": "gentle_background_ambient",
         "url": "https://cdn-game-mcp.gambo.ai/0b1b37b8-f527-47e4-a3ce-9609f60895ea/music/gentle_background_ambient.wav"
+      },
+      {
+        "type": "audio",
+        "key": "rap_viet_background",
+        "url": "/assets/music/rap_viet_background.mp3"
+      },
+      {
+        "type": "audio",
+        "key": "trang_hoa_may_mua",
+        "url": "/assets/music/trang_hoa_may_mua.mp3"
       }
     ]
   },

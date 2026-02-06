@@ -79,9 +79,9 @@ export default class GameScene extends Phaser.Scene {
     this.lastPlatformY = screenSize.height.value - 100
     this.platformSpacing = platformConfig.platformSpacing.value
 
-    // Play background music
-    this.backgroundMusic = this.sound.add("gentle_background_ambient", {
-      volume: 0.15,
+    // Play background music - Trăng Hoa Mây Mưa (Rap Việt)
+    this.backgroundMusic = this.sound.add("trang_hoa_may_mua", {
+      volume: 0.4, // Volume cho nhạc rap (có thể điều chỉnh 0.0 - 1.0)
       loop: true
     })
     this.backgroundMusic.play()

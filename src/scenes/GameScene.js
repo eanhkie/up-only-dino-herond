@@ -191,9 +191,19 @@ export default class GameScene extends Phaser.Scene {
 
     // Player-enemy collision - stomp or collision
     this.physics.add.overlap(this.player, this.enemies, (player, enemy) => {
+      // Prevent multiple calls and check if game already over
+      if (this.gameOver || !player || !enemy || !player.active || !enemy.active) {
+        return
+      }
+      
+      // Check if enemy is already dead
+      if (enemy.isDead) {
+        return
+      }
+      
       if (player.body.velocity.y > 0 && player.y < enemy.y) {
         // Player stomps enemy
-        if (enemy.stepOn()) {
+        if (enemy.stepOn && enemy.stepOn()) {
           player.jump() // Bounce after stomp
           this.addCombo()
           this.updateScore(100 * this.getComboMultiplier()) // Gain score with combo
@@ -202,10 +212,20 @@ export default class GameScene extends Phaser.Scene {
         }
       } else {
         // Player hits enemy, game over
+        // Set gameOver first to prevent multiple calls
         this.gameOver = true
-        player.die()
-        // Clear cache when game over
-        this.clearCache()
+        
+        // Delay clearCache to avoid destroying objects during collision callback
+        this.time.delayedCall(100, () => {
+          if (this.clearCache) {
+            this.clearCache()
+          }
+        })
+        
+        // Call die() which will launch GameOverScene
+        if (player.die) {
+          player.die()
+        }
       }
     })
 
@@ -695,13 +715,22 @@ export default class GameScene extends Phaser.Scene {
     // Add small buffer to account for platform visual height
     const platformBuffer = 40 // Buffer to account for platform visual appearance
     
-    if (this.player.y > this.startingPlatformY + platformBuffer && this.player.body.velocity.y > 0) {
+    if (this.player.y > this.startingPlatformY + platformBuffer && this.player.body.velocity.y > 0 && !this.gameOver) {
       // Player has fallen below the starting platform
       // Only trigger if player is actually falling (not bouncing up)
       this.gameOver = true
-      this.player.die()
-      // Clear cache when game over
-      this.clearCache()
+      
+      // Delay clearCache to avoid destroying objects during update loop
+      this.time.delayedCall(100, () => {
+        if (this.clearCache) {
+          this.clearCache()
+        }
+      })
+      
+      // Call die() which will launch GameOverScene
+      if (this.player && this.player.die) {
+        this.player.die()
+      }
       return
     }
     
@@ -794,25 +823,50 @@ export default class GameScene extends Phaser.Scene {
 
   // Clear all cache when game over or restart
   clearCache() {
-    // Destroy all platforms
-    this.platforms.children.entries.forEach(platform => {
-      platform.destroy()
-    })
+    // Only clear cache if game is over
+    if (!this.gameOver) {
+      return
+    }
+    
+    // Destroy all platforms safely
+    if (this.platforms && this.platforms.children) {
+      const platforms = this.platforms.children.entries.slice() // Copy array to avoid modification during iteration
+      platforms.forEach(platform => {
+        if (platform && platform.active) {
+          platform.destroy()
+        }
+      })
+    }
 
-    // Destroy all enemies
-    this.enemies.children.entries.forEach(enemy => {
-      enemy.destroy()
-    })
+    // Destroy all enemies safely
+    if (this.enemies && this.enemies.children) {
+      const enemies = this.enemies.children.entries.slice() // Copy array
+      enemies.forEach(enemy => {
+        if (enemy && enemy.active) {
+          enemy.destroy()
+        }
+      })
+    }
 
-    // Destroy all power-ups
-    this.powerups.children.entries.forEach(powerup => {
-      powerup.destroy()
-    })
+    // Destroy all power-ups safely
+    if (this.powerups && this.powerups.children) {
+      const powerups = this.powerups.children.entries.slice() // Copy array
+      powerups.forEach(powerup => {
+        if (powerup && powerup.active) {
+          powerup.destroy()
+        }
+      })
+    }
 
-    // Destroy all bullets
-    this.bullets.children.entries.forEach(bullet => {
-      bullet.destroy()
-    })
+    // Destroy all bullets safely
+    if (this.bullets && this.bullets.children) {
+      const bullets = this.bullets.children.entries.slice() // Copy array
+      bullets.forEach(bullet => {
+        if (bullet && bullet.active) {
+          bullet.destroy()
+        }
+      })
+    }
 
     // Clear bullet pool
     this.bulletPool = []

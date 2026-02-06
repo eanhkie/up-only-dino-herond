@@ -182,8 +182,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Update propeller hat visual position
     this.updatePropellerHatVisual()
     
-    // Update power-up glow effect
-    this.updatePowerupGlow()
+    // Update power-up glow effect - DISABLED (using individual power-up visuals instead)
+    // this.updatePowerupGlow()
 
     // Check if fell out of screen
     this.checkFallOffScreen()
@@ -586,40 +586,16 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  // Create/update power-up glow effect
+  // Create/update power-up glow effect - DISABLED
+  // Using individual power-up visuals (jetpack sprite, spring shoes sprites, propeller hat sprite) instead
+  // This prevents the white/yellow circle hover effect
   updatePowerupGlow() {
-    if (this.hasJetpack || this.hasSpringShoes || this.hasPropellerHat) {
-      if (!this.powerupGlowEffect) {
-        // Create glow effect
-        this.powerupGlowEffect = this.scene.add.circle(this.x, this.y, 40, 0xffff00, 0.2)
-        this.powerupGlowEffect.setBlendMode(Phaser.BlendModes.ADD)
-        this.powerupGlowEffect.setDepth(this.depth - 1)
-        
-        // Animate glow
-        this.scene.tweens.add({
-          targets: this.powerupGlowEffect,
-          scaleX: 1.3,
-          scaleY: 1.3,
-          alpha: 0.3,
-          duration: 1000,
-          ease: 'Sine.easeInOut',
-          yoyo: true,
-          repeat: -1
-        })
-      }
-      
-      // Update glow position
-      if (this.powerupGlowEffect) {
-        this.powerupGlowEffect.x = this.x
-        this.powerupGlowEffect.y = this.y
-      }
-    } else if (!this.hasJetpack && !this.hasSpringShoes && !this.hasPropellerHat) {
-      // Remove glow when no power-ups
-      if (this.powerupGlowEffect) {
-        this.powerupGlowEffect.destroy()
-        this.powerupGlowEffect = null
-      }
+    // Remove any existing glow effect to prevent white circle bug
+    if (this.powerupGlowEffect) {
+      this.powerupGlowEffect.destroy()
+      this.powerupGlowEffect = null
     }
+    // No longer creating glow effect - using individual power-up sprites instead
   }
 
   // Method to force update animation
